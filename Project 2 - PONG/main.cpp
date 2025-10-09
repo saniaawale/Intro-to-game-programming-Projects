@@ -1,6 +1,5 @@
 #include "CS3113/cs3113.h"
 
-// Global Constants
 constexpr int SCREEN_WIDTH  = 1600 / 2,
               SCREEN_HEIGHT = 900 / 2,
               FPS           = 60,
@@ -14,7 +13,6 @@ P1_INIT_POS = { SIZE / 2 , SCREEN_HEIGHT / 2 },
 P2_INIT_POS = { SCREEN_WIDTH - (SIZE/2) , SCREEN_HEIGHT / 2 };
  
 
-// Images owned by Nintendo — please don't sue me.
 constexpr char PLAYER_ONE[]  = "assets/Computer.png";
 constexpr char PLAYER_TWO[] = "assets/Player.png";
 constexpr char BG_TEXTURE[] = "assets/Board.png";
@@ -24,7 +22,7 @@ constexpr char BALL_PATH[] = "assets/ball.png";
 AppStatus gAppStatus     = RUNNING;
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
-
+bool singlePlayerGame = false;
 
 Texture2D gPlayer1Texture;
 Texture2D gPlayer2Texture;
@@ -63,7 +61,6 @@ bool isColliding(const Vector2 *positionA, const Vector2 *scaleA, const Vector2 
 
 // Function Definitions
 
-
 bool isColliding(const Vector2 *positionA,  const Vector2 *scaleA, 
                  const Vector2 *positionB, const Vector2 *scaleB)
 {
@@ -74,6 +71,8 @@ bool isColliding(const Vector2 *positionA,  const Vector2 *scaleA,
 
     return false;
 }
+
+
 
 void renderObject(const Texture2D *texture, const Vector2 *position, 
                   const Vector2 *scale)
@@ -157,9 +156,18 @@ void processInput()
     if (IsKeyDown(KEY_W)) gp1Movement.y = -1;
     else if (IsKeyDown(KEY_S)) gp1Movement.y = 1;
 
-    //Player 2 controls 
-    if (IsKeyDown(KEY_UP))    gp2Movement.y = -1;
-    else if (IsKeyDown(KEY_DOWN))  gp2Movement.y = 1;
+    //Switch to single player 
+    if (IsKeyPressed(KEY_T)) singlePlayerGame = true;
+
+    if (singlePlayerGame == false) {
+        //Player 2 controls 
+        if (IsKeyDown(KEY_UP))    gp2Movement.y = -1;
+        else if (IsKeyDown(KEY_DOWN))  gp2Movement.y = 1;
+    }
+    else {
+        if (gBallPosition.x > SCREEN_WIDTH/2) gp2Movement.y = gBallMovement.y;
+    }
+    
 
     if (GetLength(&gp1Movement) > 1.0f) Normalise(&gp1Movement);
     if (GetLength(&gp2Movement) > 1.0f) Normalise(&gp2Movement);
@@ -194,15 +202,17 @@ void update()
         gp1Position.y + SPEED * gp1Movement.y * deltaTime
     };
 
+    // keep player1 in bounds 
+    if (gp1Position.y < gp1Scale.y / 2) gp1Position.y = gp1Scale.y / 2;
+    if (gp1Position.y > SCREEN_HEIGHT - gp1Scale.y / 2) gp1Position.y = SCREEN_HEIGHT - gp1Scale.y / 2;
+
+
     gp2Position = {
         gp2Position.x + SPEED * gp2Movement.x * deltaTime,
         gp2Position.y + SPEED * gp2Movement.y * deltaTime
     };
 
-    // keep player in bounds 
-    if (gp1Position.y < gp1Scale.y / 2) gp1Position.y = gp1Scale.y / 2;
-    if (gp1Position.y > SCREEN_HEIGHT - gp1Scale.y / 2) gp1Position.y = SCREEN_HEIGHT - gp1Scale.y / 2;
-
+    // Player 2 in bounds
     if (gp2Position.y < gp2Scale.y / 2) gp2Position.y = gp2Scale.y / 2;
     if (gp2Position.y > SCREEN_HEIGHT - gp2Scale.y / 2) gp2Position.y = SCREEN_HEIGHT - gp2Scale.y / 2;
 
