@@ -9,9 +9,9 @@ constexpr int SCREEN_WIDTH  = 1600 / 2,
 
 constexpr char    BG_COLOUR[]    = "#F8F1C8";
 constexpr Vector2 ORIGIN = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 },
-BASE_SIZE = { (float)SIZE, (float)SIZE*5 },
-P1_INIT_POS = { SIZE / 2 , SCREEN_HEIGHT / 2 },
-P2_INIT_POS = { SCREEN_WIDTH - (SIZE/2) , SCREEN_HEIGHT / 2 };
+BASE_SIZE = { (float)SIZE*2, (float)SIZE*3},
+P1_INIT_POS = { 50 , SCREEN_HEIGHT / 2 },
+P2_INIT_POS = { SCREEN_WIDTH - 50 , SCREEN_HEIGHT / 2 };
 
  
 
@@ -19,18 +19,23 @@ constexpr char PLAYER_ONE[]  = "assets/Computer.png";
 constexpr char PLAYER_TWO[] = "assets/Player.png";
 constexpr char BG_TEXTURE[] = "assets/Board.png";
 constexpr char BALL_PATH[] = "assets/ball.png";
+constexpr char PLAYER1_WINS[] = "assets/PLAYER_1_WINS.png";
+constexpr char PLAYER2_WINS[] = "assets/PLAYER_2_WINS.png";
 
 // Global Variables
 AppStatus gAppStatus     = RUNNING;
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
 bool singlePlayerGame = false;
+float gAutoMoveDirection = 1.0f;
 
 
 Texture2D gPlayer1Texture;
 Texture2D gPlayer2Texture;
 Texture2D gBGTexture;
 Texture2D gBallTexture;
+Texture2D gPlayer1WinsTexture;
+Texture2D gPlayer2WinsTexture;
 
 
 unsigned int startTime;
@@ -50,7 +55,7 @@ Vector2 gp2Position = P2_INIT_POS,
 // Ball Variables 
 Vector2 gBallPositions[MAX_BALLS];
 Vector2 gBallMovements[MAX_BALLS];
-Vector2 gBallScale = { (float)SIZE * 0.8f , (float)SIZE * 0.8f };
+Vector2 gBallScale = { (float)SIZE  , (float)SIZE  };
 int gActiveBalls = 1;  // Start with 1 ball active
 
 
@@ -143,6 +148,9 @@ void initialise()
     gPlayer2Texture = LoadTexture(PLAYER_TWO);
     gBGTexture = LoadTexture(BG_TEXTURE);
     gBallTexture = LoadTexture(BALL_PATH);
+    gPlayer1WinsTexture = LoadTexture(PLAYER1_WINS);
+    gPlayer2WinsTexture = LoadTexture(PLAYER2_WINS);
+
 
     for (int i = 0; i < MAX_BALLS; i++) {
         resetBall(i);
@@ -163,8 +171,8 @@ void processInput()
     if (IsKeyDown(KEY_W)) gp1Movement.y = -1;
     else if (IsKeyDown(KEY_S)) gp1Movement.y = 1;
 
-    //Switch to single player 
-    if (IsKeyPressed(KEY_T)) singlePlayerGame = true;
+    //Toggle between single and multiplayer 
+    if (IsKeyPressed(KEY_T)) singlePlayerGame = !singlePlayerGame;
 
     // set ball count
     if (IsKeyPressed(KEY_ONE)) setActiveBalls(1);
@@ -177,6 +185,9 @@ void processInput()
         else if (IsKeyDown(KEY_DOWN))  gp2Movement.y = 1;
     }
     else {
+
+        // Implemented this with the paddle following the first ball in the right court first on accident but i like how it turned out so im going to leave it here
+        /*
         int targetBall = -1;
         for (int i = 0; i < gActiveBalls; i++) {
             if (gBallPositions[i].x > SCREEN_WIDTH / 2) {
@@ -194,6 +205,17 @@ void processInput()
                 gp2Movement.y = 1;
             }
         }
+        */
+
+        if (gp2Position.y <= gp2Scale.y / 2) {
+            gAutoMoveDirection = 1.0f;  // Hit top go down
+        }
+        else if (gp2Position.y >= SCREEN_HEIGHT - gp2Scale.y / 2) {
+            gAutoMoveDirection = -1.0f;  // Hit bottom go up
+        }
+
+        gp2Movement.y = gAutoMoveDirection;
+        
     }
     
 
@@ -266,15 +288,11 @@ void update()
         // P2 winning condition 
         if (gBallPositions[i].x < 0) {
             gp2Score++;
-            printf("Player 2 wins!");
-            gAppStatus = TERMINATED;  //end game
         }
 
         // P1 winning condition
         if (gBallPositions[i].x > SCREEN_WIDTH) {
             p1Score++;
-            printf("Player 1 wins!");
-            gAppStatus = TERMINATED; // end the game
         }
     }
 }
@@ -295,9 +313,21 @@ void render()
     renderObject(&gPlayer1Texture, &gp1Position, &gp1Scale);
     renderObject(&gPlayer2Texture, &gp2Position, &gp2Scale);
 
-    // Render only active balls
+    // render only active balls
     for (int i = 0; i < gActiveBalls; i++) {
         renderObject(&gBallTexture, &gBallPositions[i], &gBallScale);
+    }
+
+    // Show winner
+    if (p1Score > 0) {
+        Vector2 winPos = { SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
+        Vector2 winSize = { SCREEN_WIDTH, SCREEN_HEIGHT }; // adjust as needed
+        renderObject(&gPlayer1WinsTexture, &winPos, &winSize);
+    }
+    else if (gp2Score > 0) {
+        Vector2 winPos = { SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
+        Vector2 winSize = { SCREEN_WIDTH, SCREEN_HEIGHT };
+        renderObject(&gPlayer2WinsTexture, &winPos, &winSize);
     }
 
     EndDrawing();
