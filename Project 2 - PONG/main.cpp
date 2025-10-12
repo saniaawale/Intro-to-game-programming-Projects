@@ -1,3 +1,16 @@
+
+
+/**
+* Author: Sania Kishor Awale
+* Assignment: Pong Clone 
+* Date due: 2025-10-13, 11:59pm
+* I pledge that I have completed this assignment without
+* collaborating with anyone else, in conformance with the 
+* NYU School of Engineering Policies and Procedures on 
+* Academic Misconduct.
+**/
+
+
 #include "CS3113/cs3113.h"
 
 constexpr int SCREEN_WIDTH  = 1600 / 2,
