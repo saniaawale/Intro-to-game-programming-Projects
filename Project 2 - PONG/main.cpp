@@ -4,13 +4,15 @@ constexpr int SCREEN_WIDTH  = 1600 / 2,
               SCREEN_HEIGHT = 900 / 2,
               FPS           = 60,
               SIZE          = 25,
-              SPEED         = 200;
+              SPEED         = 200,
+              MAX_BALLS = 3;
 
 constexpr char    BG_COLOUR[]    = "#F8F1C8";
 constexpr Vector2 ORIGIN = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 },
 BASE_SIZE = { (float)SIZE, (float)SIZE*5 },
 P1_INIT_POS = { SIZE / 2 , SCREEN_HEIGHT / 2 },
 P2_INIT_POS = { SCREEN_WIDTH - (SIZE/2) , SCREEN_HEIGHT / 2 };
+
  
 
 constexpr char PLAYER_ONE[]  = "assets/Computer.png";
@@ -23,6 +25,7 @@ AppStatus gAppStatus     = RUNNING;
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
 bool singlePlayerGame = false;
+
 
 Texture2D gPlayer1Texture;
 Texture2D gPlayer2Texture;
@@ -45,10 +48,10 @@ Vector2 gp2Position = P2_INIT_POS,
         int gp2Score = 0;
 
 // Ball Variables 
-Vector2 gBallPosition = ORIGIN,
-        gBallMovement = {1.0f, 1.0f},
-        gBallScale = { (float)SIZE * 0.8f , (float)SIZE * 0.8f };
-
+Vector2 gBallPositions[MAX_BALLS];
+Vector2 gBallMovements[MAX_BALLS];
+Vector2 gBallScale = { (float)SIZE * 0.8f , (float)SIZE * 0.8f };
+int gActiveBalls = 1;  // Start with 1 ball active
 
 
 // Function Declarations
@@ -72,7 +75,28 @@ bool isColliding(const Vector2 *positionA,  const Vector2 *scaleA,
     return false;
 }
 
+void resetBall(int ballIndex)
+{
+    gBallPositions[ballIndex] = ORIGIN;
 
+    // Vary the initial direction slightly for each ball
+    float xDir = (ballIndex % 2 == 0) ? 1.0f : -1.0f;
+    float yDir = (ballIndex == 0) ? 1.0f : (ballIndex == 1) ? -1.0f : 0.5f;
+
+    gBallMovements[ballIndex] = { xDir, yDir };
+}
+
+void setActiveBalls(int count)
+{
+    int previousCount = gActiveBalls;
+    gActiveBalls = count;
+
+    if (count > previousCount) {
+        for (int i = previousCount; i < count; i++) {
+            resetBall(i);
+        }
+    }
+}
 
 void renderObject(const Texture2D *texture, const Vector2 *position, 
                   const Vector2 *scale)
@@ -120,34 +144,17 @@ void initialise()
     gBGTexture = LoadTexture(BG_TEXTURE);
     gBallTexture = LoadTexture(BALL_PATH);
 
+    for (int i = 0; i < MAX_BALLS; i++) {
+        resetBall(i);
+    }
+    
+
     SetTargetFPS(FPS);
 }
 
 void processInput() 
 {
-    /*
-
-    if      (IsKeyDown(KEY_A)) gMovement.x = -1;
-    else if (IsKeyDown(KEY_D)) gMovement.x =  1;
-    if      (IsKeyDown(KEY_W)) gMovement.y = -1;
-    else if (IsKeyDown(KEY_S)) gMovement.y =  1;
-
-    /*
-    This system will cause quite a bit of "shaking" once the game object
-    reaches the mouse position. Ideally, we'd stop checking for this
-    once the object reaches a general area AROUND the mouse position.
-    
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-    {
-        if (gPosition.x < gMousePosition.x) gMovement.x =  1;
-        if (gPosition.x > gMousePosition.x) gMovement.x = -1;
-        if (gPosition.y < gMousePosition.y) gMovement.y =  1;
-        if (gPosition.y > gMousePosition.y) gMovement.y = -1;
-    }
-
-    // to avoid faster diagonal speed
-    if (GetLength(&gMovement) > 1.0f) Normalise(&gMovement);
-    */
+ 
 
     gp1Movement = { 0.0f, 0.0f };
     gp2Movement = { 0.0f , 0.0f };
@@ -159,13 +166,34 @@ void processInput()
     //Switch to single player 
     if (IsKeyPressed(KEY_T)) singlePlayerGame = true;
 
+    // set ball count
+    if (IsKeyPressed(KEY_ONE)) setActiveBalls(1);
+    if (IsKeyPressed(KEY_TWO)) setActiveBalls(2);
+    if (IsKeyPressed(KEY_THREE)) setActiveBalls(3);
+
     if (singlePlayerGame == false) {
         //Player 2 controls 
         if (IsKeyDown(KEY_UP))    gp2Movement.y = -1;
         else if (IsKeyDown(KEY_DOWN))  gp2Movement.y = 1;
     }
     else {
-        if (gBallPosition.x > SCREEN_WIDTH/2) gp2Movement.y = gBallMovement.y;
+        int targetBall = -1;
+        for (int i = 0; i < gActiveBalls; i++) {
+            if (gBallPositions[i].x > SCREEN_WIDTH / 2) {
+                targetBall = i;
+                break;// Follow the first ball found in the court
+            }
+        }
+
+        // If a ball is in right court 
+        if (targetBall != -1) {
+            if (gBallPositions[targetBall].y < gp2Position.y) {
+                gp2Movement.y = -1;
+            }
+            else if (gBallPositions[targetBall].y > gp2Position.y) {
+                gp2Movement.y = 1;
+            }
+        }
     }
     
 
@@ -177,25 +205,12 @@ void processInput()
     
 }
 
-void update() 
+void update()
 {
     // Delta time
-    float ticks = (float) GetTime();
+    float ticks = (float)GetTime();
     float deltaTime = ticks - gPreviousTicks;
-    gPreviousTicks  = ticks;
-
-    /*gMousePosition = GetMousePosition();
-
-    gPosition = {
-        gPosition.x + SPEED * gMovement.x * deltaTime,
-        gPosition.y + SPEED * gMovement.y * deltaTime
-    };
-
-    if (isColliding(
-        &gPosition,  &gScale,
-        &gRupeePosition, &gRupeeScale
-    )) printf("Collision @ %us in game time.\n", (unsigned) time(NULL) - startTime);
-    */
+    gPreviousTicks = ticks;
 
     gp1Position = {
         gp1Position.x + SPEED * gp1Movement.x * deltaTime,
@@ -216,57 +231,52 @@ void update()
     if (gp2Position.y < gp2Scale.y / 2) gp2Position.y = gp2Scale.y / 2;
     if (gp2Position.y > SCREEN_HEIGHT - gp2Scale.y / 2) gp2Position.y = SCREEN_HEIGHT - gp2Scale.y / 2;
 
-    // Normalize ball movement 
-    if (GetLength(&gBallMovement) > 1.0f) Normalise(&gBallMovement);
-
-    float ballSpeed = 300.0f;  // ball speed 
-    gBallPosition = {
-        gBallPosition.x + ballSpeed * gBallMovement.x * deltaTime,
-        gBallPosition.y + ballSpeed * gBallMovement.y * deltaTime
-    };
-
-    // Ball collision with top and bottom walls
-    if (gBallPosition.y <= gBallScale.y / 2 ||
-        gBallPosition.y >= SCREEN_HEIGHT - gBallScale.y / 2) {
-        gBallMovement.y *= -1;  // Reverse vertical direction
-    }
-
-    // Ball collision with Player 1 paddle
-    if (isColliding(&gBallPosition, &gBallScale, &gp1Position, &gp1Scale)) {
-        if (gBallMovement.x < 0) {  // Only reverse if moving toward P1
-            gBallMovement.x *= -1;
-        }
-    }
-
-    // Ball collision with Player 2 paddle
-    if (isColliding(&gBallPosition, &gBallScale, &gp2Position, &gp2Scale)) {
-        if (gBallMovement.x > 0) {  // Only reverse if moving toward P2
-            gBallMovement.x *= -1;
-        }
-    }
-
-    // Scoring - player 2 scores
-    if (gBallPosition.x < 0) {
-        gp2Score++;
-        printf("Player 2 scores! Score: %d - %d\n", p1Score, gp2Score);
-
-        // Reset ball to center
-        gBallPosition = ORIGIN;
-        gBallMovement = { -1.0f, 1.0f };  // send toward P1
-    }
-
-    // Scoring - Player 1 scores
-    if (gBallPosition.x > SCREEN_WIDTH) {
-        p1Score++;
-        printf("Player 1 scores! Score: %d - %d\n", p1Score, gp2Score);
-
-        // reset to center
-        gBallPosition = ORIGIN;
-        gBallMovement = { 1.0f, 1.0f };  // Send toward P2
-    }
-
-
     
+    float ballSpeed = 300.0f;
+    //BALL MOVEMENT 
+    for (int i = 0; i < gActiveBalls; i++) {
+        // Normalize
+        if (GetLength(&gBallMovements[i]) > 1.0f) Normalise(&gBallMovements[i]);
+
+        gBallPositions[i] = {
+            gBallPositions[i].x + ballSpeed * gBallMovements[i].x * deltaTime,
+            gBallPositions[i].y + ballSpeed * gBallMovements[i].y * deltaTime
+        };
+
+        // collision with top and bottom walls
+        if (gBallPositions[i].y <= gBallScale.y / 2 ||
+            gBallPositions[i].y >= SCREEN_HEIGHT - gBallScale.y / 2) {
+            gBallMovements[i].y *= -1;  // reverse direction vertically 
+        }
+
+        //collision with player 1 
+        if (isColliding(&gBallPositions[i], &gBallScale, &gp1Position, &gp1Scale)) {
+            if (gBallMovements[i].x < 0) {  // reverse if moving toward P1
+                gBallMovements[i].x *= -1;
+            }
+        }
+
+        // collision with Player 2 
+        if (isColliding(&gBallPositions[i], &gBallScale, &gp2Position, &gp2Scale)) {
+            if (gBallMovements[i].x > 0) {  // reverse if moving toward P2
+                gBallMovements[i].x *= -1;
+            }
+        }
+
+        // P2 winning condition 
+        if (gBallPositions[i].x < 0) {
+            gp2Score++;
+            printf("Player 2 wins!");
+            gAppStatus = TERMINATED;  //end game
+        }
+
+        // P1 winning condition
+        if (gBallPositions[i].x > SCREEN_WIDTH) {
+            p1Score++;
+            printf("Player 1 wins!");
+            gAppStatus = TERMINATED; // end the game
+        }
+    }
 }
 
 void render()
@@ -285,7 +295,10 @@ void render()
     renderObject(&gPlayer1Texture, &gp1Position, &gp1Scale);
     renderObject(&gPlayer2Texture, &gp2Position, &gp2Scale);
 
-    renderObject(&gBallTexture, &gBallPosition, &gBallScale);
+    // Render only active balls
+    for (int i = 0; i < gActiveBalls; i++) {
+        renderObject(&gBallTexture, &gBallPositions[i], &gBallScale);
+    }
 
     EndDrawing();
 }
@@ -296,6 +309,7 @@ void shutdown()
     UnloadTexture(gPlayer1Texture);
     UnloadTexture(gPlayer2Texture);
     UnloadTexture(gBallTexture);
+    UnloadTexture(gBGTexture);
 }
 
 int main(void)
