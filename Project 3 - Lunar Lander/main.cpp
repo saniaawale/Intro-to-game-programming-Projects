@@ -251,8 +251,7 @@ void update()
             velocity = gLander->getVelocity();
             float landingSpeed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
             float landerAngle = gLander->getAngle();
-
-
+          
             if (gPlatformTypes[hitPlatformIndex] == SAFE_LANDING) { // safe landing
                 if ( landingSpeed <= MAX_SAFE_LANDING_SPEED && landerAngle <= MAX_SAFE_ANGLE) {
                     gGameState = MISSION_ACCOMPLISHED;
@@ -284,7 +283,6 @@ void update()
 
     gTimeAccumulator = deltaTime;
 }
-
 
 void render()
 {
