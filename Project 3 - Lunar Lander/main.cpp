@@ -162,7 +162,6 @@ void processInput()
         gLander->setAngle(currentAngle);
 
     }
-
     if (IsKeyDown(KEY_RIGHT)) {
         float currentAngle = gLander->getAngle();
         currentAngle -= ROTATION_INCREMENT; //rotate right
@@ -170,8 +169,6 @@ void processInput()
         gLander->setAngle(currentAngle);
 
     }
-
-
     if (IsKeyDown(KEY_UP) && gFuel > 0.0f) {
         float angleDegrees = gLander->getAngle();
         float angleRadians = angleDegrees * PI / 180.0f;
